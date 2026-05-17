@@ -3,49 +3,38 @@
 > A Claude Code skill that lets you switch sessions without losing context.
 > Generates a minimum-token handoff doc for the next agent and maintains a project-root `STATUS.md` log so a fresh session can orient itself in seconds.
 
+![Handoff — a context handoff tool for Claude Code](./marketing/screenshots/01-hero.png)
+
 ---
 
-## What it does
+## The pain
 
-When your Claude Code session ends — either because the context window is full, the task stage is done, or you just want to switch agents — this skill produces:
+If you've vibecoded for more than a few weeks, you've hit this wall. Three quotes from the **2026-05-16 Hackathon Bottleneck Wall**, where attendees wrote their biggest AI-coding pain on sticky notes:
 
-1. A **handoff document** the next agent reads to fully understand the project state and immediately continue work, with the smallest possible token cost.
-2. A running **`STATUS.md`** log at the project root that any fresh agent can read to orient itself — even without a handoff prompt.
-3. A **snapshot commit** so the repo state matches the handoff exactly (clean starting point + restore point).
-4. A **copy-pasteable prompt** to drop into the next conversation.
+![Three quotes from the Hackathon Bottleneck Wall](./marketing/screenshots/02-pain.png)
+
+This skill is the answer. It treats session boundaries as a first-class engineering problem — not a hope-it-works moment.
+
+---
+
+## What you get
+
+When a session wraps up, the skill produces four artifacts:
+
+1. **A handoff document** — minimum-token context transfer for the next agent.
+2. **A `STATUS.md` log entry** — appended to the project root, never overwritten.
+3. **A snapshot commit** — repo state matches the handoff exactly (clean starting point + restore point).
+4. **A copy-paste prompt** — drop into the next conversation, that's it.
 
 It's not a template. The skill investigates what actually happened, figures out the minimum reading list, and writes a doc adapted to the specific situation.
 
 ---
 
-## Why
+## The killer feature: `STATUS.md`
 
-If you've ever:
+![STATUS.md — a single auto-maintained file at the project root](./marketing/screenshots/03-status.png)
 
-- Spent the first 10 minutes of a new Claude Code session re-explaining the project
-- Run out of context mid-task and didn't know how to hand off
-- Lost a debugging conclusion because you closed the chat
-- Asked Claude "where were we?" and gotten a hallucinated answer
-- Tried to onboard a teammate (or another agent) onto a mid-flight project
-
-…then this skill is for you.
-
-It treats session boundaries as a first-class engineering problem — not a hope-it-works moment.
-
----
-
-## The killer feature: `STATUS.md` auto-maintenance
-
-The skill maintains a single file at the **project root** called `STATUS.md`. Every handoff appends a new entry (never overwrites — entries are a scrollable history).
-
-When a fresh chat opens and you ask **"where are we?"** or **"帮我看一下这个项目进行到什么程度了"** — the skill's Fresh Session Orientation kicks in:
-
-1. Auto-reads `STATUS.md` from the project root
-2. Reads the last entry
-3. Runs `git log --oneline -5` to catch any commits since
-4. Presents a clean orientation: what was done last session, current state, recommended next steps
-
-No handoff prompt needed. The skill becomes the default first move when asked about project status.
+Every handoff appends one entry to a `STATUS.md` at the project root — append-only, never overwritten, so the file becomes a scrollable history of the project. The trick: the next time you open a chat and ask **"where are we?"** or **"what's the status of this project?"**, the skill auto-reads the last entry plus `git log --oneline -5` and orients itself in seconds. No handoff prompt required. Finding `STATUS.md` becomes the default first move.
 
 ---
 
@@ -57,9 +46,7 @@ Clone into your Claude Code skills directory:
 git clone https://github.com/phat-po/claude-skill-handoff ~/.claude/skills/handoff
 ```
 
-That's it. The skill is now available.
-
-To verify, in any Claude Code session type `/handoff` or just say "wrap up for next agent" — it should trigger.
+That's it. To verify, in any Claude Code session type `/handoff` or just say "wrap up for next agent" — it should trigger.
 
 ---
 
@@ -68,56 +55,26 @@ To verify, in any Claude Code session type `/handoff` or just say "wrap up for n
 The skill triggers on any of these:
 
 - The slash command `/handoff`
-- Phrases like:
-  - `handoff`
-  - `hand off`
-  - `pass to next agent`
-  - `context handoff`
-  - `next agent`
-  - `session done`
-  - `stage done`
-  - `wrap up for next agent`
-- Fresh-session orientation: `"where are we?"` / `"what's next?"` / `"帮我看一下这个项目进行到什么程度了"` automatically reads `STATUS.md`
+- Phrases like `handoff`, `hand off`, `pass to next agent`, `context handoff`, `next agent`, `session done`, `stage done`, `wrap up for next agent`
+- Fresh-session questions like `"where are we?"` / `"what's next?"` automatically read `STATUS.md`
 
-### Typical flow
+A typical handoff plays out like a four-line transcript:
 
-```text
-You:    "handoff please, context is getting tight"
+![Typical flow — a transcript of how a handoff actually plays out](./marketing/screenshots/04-flow.png)
 
-Claude: [investigates: prior handoffs, git diff, current task, ripple effects]
-        [writes handoff doc with minimum reading list]
-        [appends entry to STATUS.md]
-        [git commit -m "snapshot: before <next task>"]
-        [outputs copy-pasteable prompt for new chat]
+---
 
-You:    [open new chat]
-        [paste the prompt]
+## How it gets there (5-phase investigation)
 
-NextClaude: [reads only the handoff doc]
-            [orients immediately, picks up where last session ended]
-```
+![Five-phase process — how it gets there](./marketing/screenshots/05-phases.png)
+
+The skill is deterministic about *process*, not *output* — every handoff runs through the same five investigation phases above. For the complete spec, see [`SKILL.md`](./SKILL.md).
 
 ---
 
 ## Example
 
 See [`examples/handoff-example.md`](./examples/handoff-example.md) for a real (sanitized) handoff document, and [`examples/STATUS-example.md`](./examples/STATUS-example.md) for a sample `STATUS.md` log.
-
----
-
-## How it works (5-phase investigation)
-
-The skill is deterministic about *process*, not *output*. It runs through:
-
-| Phase | What it does |
-|---|---|
-| 1. Look Backward | Find prior handoff docs, project structure docs (CLAUDE.md, roadmaps), current task definition |
-| 2. Look at Present | `git diff --stat`, `git log --oneline`, decisions made, current state, what was deliberately NOT done |
-| 3. Look at Next | Identify next task(s), check for ripple effects from this session, flag stale docs |
-| 4. Build Reading List | Smallest set of files the next agent needs — ranked, absolute paths, stop-early friendly |
-| 5. Write Handoff Doc | Adapted structure (no boilerplate sections), then update `STATUS.md`, then snapshot commit, then output prompt |
-
-The full SKILL.md is in the repo root — read it for the complete spec.
 
 ---
 
@@ -138,22 +95,12 @@ The full SKILL.md is in the repo root — read it for the complete spec.
 
 ---
 
-## License
+## Background
 
-MIT — see [LICENSE](./LICENSE).
+Built and battle-tested across many vibecoding projects by [Pohan](https://github.com/phat-po). Open-sourced after the 2026-05-16 Hackathon Bottleneck Wall, where multiple attendees wrote down the same pain on sticky notes — the three quotes above.
 
 ---
 
-## Background
+## License
 
-Built and battle-tested across many vibecoding projects by [Pohan](https://github.com/phat-po).
-
-Open-sourced after the **2026-05-16 vibecoding Hackathon Bottleneck Wall** session, where multiple participants wrote down the same pain point on a sticky note:
-
-> "一个大任务跑到一半 token 就烧到 80% 了，AI 开始变笨或者直接断掉，我也不知道怎么把进度交给下一个 session 继续"
->
-> "每次开新对话都要重新跟 AI 解释一遍项目背景，昨天花三小时 debug 出来的结论它今天全忘了"
->
-> "The previous context doesn't get carried through the next conversation all the time."
-
-This skill is the answer.
+MIT — see [LICENSE](./LICENSE).
